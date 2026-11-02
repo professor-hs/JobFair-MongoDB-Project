@@ -1,6 +1,6 @@
 [build]
-  base = "JobFair-MongoDB"
-  publish = "frontend"
+  publish = "JobFair-MongoDB/frontend"
+  command = "echo 'JobFair Nexus static frontend ready'"
 
 [[redirects]]
   from = "/*"

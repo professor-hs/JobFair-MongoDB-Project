@@ -1,5 +1,7 @@
 # JobFair Nexus — Online Job Fair & Recruitment Management System
 
+[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/professor-hs/JobFair-MongoDB-Project)
+
 A full-stack campus placement and job fair management system built with **HTML5, CSS3, Bootstrap 5, jQuery, Node.js, Express, MongoDB**, and integrated with **Live Public REST APIs** for instant cloud & static deployment on **Netlify**.
 
 ## ✨ Key Features
@@ -30,4 +32,5 @@ npm run dev
 Open `http://localhost:5000` in your browser.
 
 ## 🌐 Netlify Deployment
-This repository includes `netlify.toml` pre-configured to publish `JobFair-MongoDB/frontend` with SPA routing rules.
+1. Click the **Deploy to Netlify** button above, or go to [Netlify](https://app.netlify.com/) → **Add new site** → **Import an existing project** → **GitHub** → select `professor-hs/JobFair-MongoDB-Project`.
+2. `netlify.toml` is pre-configured (`publish = "JobFair-MongoDB/frontend"`). Click **Deploy**.
