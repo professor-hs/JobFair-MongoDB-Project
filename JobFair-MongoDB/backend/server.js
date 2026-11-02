@@ -31,6 +31,23 @@ app.get("/api/health", (req, res) => {
   res.json({ ok: true, service: "JobFair Nexus API", database: mongoose.connection.readyState });
 });
 
+app.post("/api/auth/login", (req, res) => {
+  const { username, password } = req.body || {};
+  const u = String(username || "").trim();
+  const p = String(password || "");
+  if (u === "Admin1" && p === "Admin@1234") {
+    return res.json({ ok: true, username: "Admin1", role: "Administrator", isAdmin: true });
+  }
+  const m = /^student(\d+)$/i.exec(u);
+  if (m) {
+    const num = m[1];
+    if (u === `student${num}` && p === `Student@${num}`) {
+      return res.json({ ok: true, username: u, studentNumber: Number(num), role: "Student", isAdmin: false });
+    }
+  }
+  return res.status(401).json({ ok: false, message: "Invalid username or password." });
+});
+
 app.post("/api/public-sync", async (req, res, next) => {
   try {
     if (mongoose.connection.readyState !== 1) {

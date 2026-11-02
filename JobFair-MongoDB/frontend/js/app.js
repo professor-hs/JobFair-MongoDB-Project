@@ -1,7 +1,7 @@
-/* JobFair Nexus Frontend — Hybrid Express/MongoDB REST API + Live Public APIs Engine */
+/* JobFair Nexus Frontend — Compulsory Login + Hybrid Express/MongoDB REST API + Live Public APIs Engine */
 const API = "/api";
 const STORAGE_KEY = "jobfair_nexus_db_v2";
-const USER_KEY = "jobfair_nexus_user";
+const SESSION_KEY = "jobfair_nexus_session_v1";
 
 const PUBLIC_APIS = {
   dummyUsers: {
@@ -41,13 +41,48 @@ const state = {
   records: {},
   editing: null,
   modal: null,
-  authModal: null,
   query: "",
   status: "",
   backendOnline: false,
   apiMetrics: {},
-  liveFeedJobs: []
+  liveFeedJobs: [],
+  user: null
 };
+
+/* ==================== COMPULSORY AUTHENTICATION VALIDATOR ==================== */
+function validateCredentials(username, password) {
+  const u = String(username || "").trim();
+  const p = String(password || "");
+
+  // 1. Admin login: Admin1 / Admin@1234
+  if (u === "Admin1" && p === "Admin@1234") {
+    return {
+      username: "Admin1",
+      name: "Placement Admin (Admin1)",
+      role: "Administrator",
+      isAdmin: true
+    };
+  }
+
+  // 2. Student login pattern: student1 / Student@1, student2 / Student@2, studentN / Student@N
+  const studentMatch = /^student(\d+)$/i.exec(u);
+  if (studentMatch) {
+    const num = studentMatch[1];
+    const expectedUsername = `student${num}`;
+    const expectedPassword = `Student@${num}`;
+    if (u === expectedUsername && p === expectedPassword) {
+      return {
+        username: expectedUsername,
+        studentNumber: Number(num),
+        name: `Student ${num} (${expectedUsername})`,
+        role: "Student",
+        isAdmin: false
+      };
+    }
+  }
+
+  return null;
+}
 
 const config = {
   companies: {
@@ -275,7 +310,6 @@ async function seedFromPublicAPIs(forceReset = false) {
   const companies = [];
   const seenCompanies = new Set();
 
-  // 1. Build companies from Remotive / Arbeitnow / DummyJSON
   for (const rj of state.liveFeedJobs.slice(0, 5)) {
     if (rj.companyName && !seenCompanies.has(rj.companyName)) {
       seenCompanies.add(rj.companyName);
@@ -318,7 +352,6 @@ async function seedFromPublicAPIs(forceReset = false) {
     );
   }
 
-  // 2. Build Jobs from Public APIs linked to Companies
   const departments = ["Engineering", "Data Science", "Product", "Design", "Business", "Marketing"];
   const skillSets = [
     ["JavaScript", "Node.js", "MongoDB", "React"],
@@ -371,7 +404,6 @@ async function seedFromPublicAPIs(forceReset = false) {
     });
   });
 
-  // 3. Build Students from RandomUser API + DummyJSON Users
   const studentDepts = ["Computer Science", "Information Technology", "Data Science", "Electronics", "Mechanical"];
   const students = [];
 
@@ -379,6 +411,7 @@ async function seedFromPublicAPIs(forceReset = false) {
     const fullName = `${ru.name.first} ${ru.name.last}`;
     students.push({
       _id: uid("stu"),
+      username: `student${idx + 1}`,
       name: fullName,
       regNo: `23BCS${String(101 + idx).padStart(4, "0")}`,
       email: ru.email,
@@ -387,7 +420,7 @@ async function seedFromPublicAPIs(forceReset = false) {
       graduationYear: 2026 + (idx % 2),
       cgpa: Number((7.4 + ((idx * 0.37) % 2.4)).toFixed(2)),
       skills: skillSets[idx % skillSets.length],
-      resumeUrl: `https://portfolio.campus.edu/${ru.login?.username || "student" + idx}`,
+      resumeUrl: `https://portfolio.campus.edu/${ru.login?.username || "student" + (idx + 1)}`,
       sourceApi: "RandomUser API",
       createdAt: new Date(Date.now() - idx * 43200000).toISOString()
     });
@@ -397,6 +430,7 @@ async function seedFromPublicAPIs(forceReset = false) {
     const n = students.length + 1;
     students.push({
       _id: uid("stu"),
+      username: `student${n}`,
       name: `${u.firstName} ${u.lastName}`,
       regNo: `23BIT${String(200 + n).padStart(4, "0")}`,
       email: u.email,
@@ -411,7 +445,6 @@ async function seedFromPublicAPIs(forceReset = false) {
     });
   });
 
-  // 4. Build Applications connecting Students & Jobs
   const appStatuses = ["Selected", "Shortlisted", "Interview Scheduled", "Under Review", "Applied", "Shortlisted", "Selected", "Applied", "Rejected"];
   const applications = [];
   for (let i = 0; i < Math.min(students.length, 9); i++) {
@@ -429,7 +462,6 @@ async function seedFromPublicAPIs(forceReset = false) {
     });
   }
 
-  // 5. Build Interviews from shortlisted / scheduled / selected applications
   const rounds = ["Technical Round", "Coding Assessment", "Final Round", "HR Round", "Managerial Round"];
   const modes = ["Online", "On-site", "Online", "Phone"];
   const interviews = [];
@@ -549,7 +581,6 @@ async function api(path, options = {}) {
         throw new Error(errData.message || `Request failed (${res.status})`);
       }
     } catch (err) {
-      // Fall back to Public API + LocalStorage engine if backend is unreachable
       state.backendOnline = false;
       setConnection(true, "Public APIs Live");
     }
@@ -575,9 +606,7 @@ async function checkHealth() {
         return;
       }
     }
-  } catch (e) {
-    // Netlify static hosting or local without MongoDB
-  }
+  } catch (e) {}
   state.backendOnline = false;
   await seedFromPublicAPIs(false);
   setConnection(true, "Public APIs Connected");
@@ -587,9 +616,9 @@ async function checkHealth() {
 function pageHeading(title, subtitle, action) {
   $("#pageCrumb").text(title);
   $("#pageHeading").html(
-    `<div><div class="eyebrow">PLACEMENT MANAGEMENT · LIVE WORKSPACE</div><h1 class="page-title">${esc(title)}</h1><p class="page-subtitle">${esc(subtitle)}</p></div>${
-      action ? `<div class="heading-actions">${action}</div>` : ""
-    }`
+    `<div><div class="eyebrow">PLACEMENT MANAGEMENT · ${state.user?.isAdmin ? "ADMIN WORKSPACE" : "STUDENT PORTAL"}</div><h1 class="page-title">${esc(
+      title
+    )}</h1><p class="page-subtitle">${esc(subtitle)}</p></div>${action ? `<div class="heading-actions">${action}</div>` : ""}`
   );
 }
 function addButton(label, icon, action = "addRecord") {
@@ -614,8 +643,8 @@ function entity(name, meta, avatarUrl = "") {
     : `<div class="entity-logo"><span>${esc(initials || "—")}</span></div>`;
   return `<div class="entity-cell">${visual}<div><div class="entity-name">${esc(name || "—")}</div><div class="entity-meta">${esc(meta || "")}</div></div></div>`;
 }
-function actions(id) {
-  return `<div class="row-actions"><button class="mini-action" title="Edit" data-action="edit" data-id="${esc(id)}"><i class="bi bi-pencil"></i></button><button class="mini-action" title="Delete" data-action="delete" data-id="${esc(id)}"><i class="bi bi-trash3"></i></button></div>`;
+function actions(id, extraHtml = "") {
+  return `<div class="row-actions">${extraHtml}<button class="mini-action" title="Edit" data-action="edit" data-id="${esc(id)}"><i class="bi bi-pencil"></i></button><button class="mini-action" title="Delete" data-action="delete" data-id="${esc(id)}"><i class="bi bi-trash3"></i></button></div>`;
 }
 
 function updateNavCounts() {
@@ -657,8 +686,8 @@ function tableShell(headers, rows, emptyTitle, emptyDesc) {
     rows.length ? rows.join("") : `<tr><td colspan="${headers.length}">${emptyState(emptyTitle, emptyDesc)}</td></tr>`
   }</tbody></table></div></div>`;
 }
-function row(cells, id) {
-  return `<tr>${cells.map((c) => `<td>${c}</td>`).join("")}<td>${actions(id)}</td></tr>`;
+function row(cells, id, extraActionHtml = "") {
+  return `<tr>${cells.map((c) => `<td>${c}</td>`).join("")}<td>${actions(id, extraActionHtml)}</td></tr>`;
 }
 
 async function loadCollection(key, force = false) {
@@ -669,11 +698,15 @@ async function loadCollection(key, force = false) {
 }
 
 async function loadDashboard() {
-  const currentUser = getSavedUser();
+  const u = state.user || { username: "Admin1", name: "Admin1", isAdmin: true };
   pageHeading(
-    `Welcome back, ${currentUser.name.split(" ")[0]} 👋`,
-    "Real-time campus placement metrics powered by Public APIs & persistent storage.",
-    `<button class="btn btn-light" data-page="public-apis"><i class="bi bi-cloud-arrow-down me-1"></i> Live API Hub</button> ${addButton("Create job", "bi-plus-lg", "quickAddJob")}`
+    `Welcome, ${u.username} 👋`,
+    u.isAdmin
+      ? "Real-time campus placement metrics powered by Public APIs & persistent storage."
+      : "Explore open campus drives, apply to top employers, and track your application status.",
+    `<button class="btn btn-light" data-page="public-apis"><i class="bi bi-cloud-arrow-down me-1"></i> Live API Hub</button> ${
+      u.isAdmin ? addButton("Create job", "bi-plus-lg", "quickAddJob") : `<button class="btn btn-primary" data-page="jobs"><i class="bi bi-briefcase me-1"></i> Browse Open Jobs</button>`
+    }`
   );
   $("#pageView").html(`<div class="loading-state"><div class="spinner-border text-primary"></div><p>Loading live recruitment metrics…</p></div>`);
   try {
@@ -736,9 +769,9 @@ async function loadDashboard() {
         `${s.selected} final offers extended`
       )}</div><div class="dashboard-grid"><div class="panel"><div class="panel-head"><div><h3 class="panel-title">Recruitment activity</h3><div class="panel-subtitle">Campus placement momentum · Applications vs Interviews</div></div><span class="badge rounded-pill text-bg-light">Live Metrics</span></div><div class="panel-body"><div class="chart-bars">${bars}</div><div class="chart-legend"><span><i class="legend-dot blue"></i>Applications</span><span><i class="legend-dot pale"></i>Interviews</span></div></div></div><div class="panel"><div class="panel-head"><div><h3 class="panel-title">Application pipeline</h3><div class="panel-subtitle">Current candidate funnel distribution</div></div><i class="bi bi-funnel text-secondary"></i></div><div class="panel-body"><div class="pipeline">${pipe}</div></div></div></div><div class="panel table-panel"><div class="panel-head"><div><h3 class="panel-title">Recent applications</h3><div class="panel-subtitle">Latest candidate activity across open roles</div></div><a class="text-link" href="#" data-page="applications">View all <i class="bi bi-arrow-right"></i></a></div><div class="table-responsive"><table class="table align-middle"><thead><tr><th>Candidate</th><th>Job opening</th><th>Status</th><th>Applied on</th><th>Actions</th></tr></thead><tbody>${
         recent || `<tr><td colspan="5">${emptyState("No applications yet", "Add students, jobs and applications to populate your dashboard.")}</td></tr>`
-      }</tbody></table></div></div><div class="text-end small text-secondary">Student profiles: ${s.students} · Interviews scheduled/completed: ${
-        s.interviews
-      } · Selected candidates: ${s.selected}</div>`
+      }</tbody></table></div></div><div class="text-end small text-secondary">Logged in as: <strong>${esc(u.username)}</strong> (${esc(
+        u.role
+      )}) · Student profiles: ${s.students} · Interviews: ${s.interviews} · Selected: ${s.selected}</div>`
     );
   } catch (e) {
     $("#pageView").html(emptyState("Could not load dashboard", e.message));
@@ -759,11 +792,19 @@ function recordRows(key, records) {
     switch (key) {
       case "companies":
         return row([entity(r.name, r.industry), esc(r.location || "—"), esc(r.contactEmail || "—"), badge(r.status), fmtDate(r.createdAt)], r._id);
-      case "jobs":
+      case "jobs": {
+        const applyBtn =
+          !state.user?.isAdmin && r.status === "Open"
+            ? `<button class="btn btn-primary btn-sm py-1 px-2 me-1" data-action="quickApplyJob" data-id="${esc(r._id)}" title="Apply as ${esc(
+                state.user?.username
+              )}"><i class="bi bi-send-check me-1"></i>Apply</button>`
+            : "";
         return row(
           [entity(r.title, labelOf(r.company)), esc(r.department || "—"), esc(r.location || "—"), esc(r.salary || "—"), badge(r.status), fmtDate(r.deadline)],
-          r._id
+          r._id,
+          applyBtn
         );
+      }
       case "students":
         return row(
           [entity(r.name, r.regNo, r.avatar), esc(r.email), esc(r.department), `<strong>${esc(r.cgpa ?? "—")}</strong>`, renderSkills(r.skills)],
@@ -835,6 +876,44 @@ async function loadTable(key) {
     updateNavCounts();
   } catch (e) {
     $("#pageView").html(emptyState("Could not load records", e.message));
+    toast(e.message, "error");
+  }
+}
+
+async function quickApplyJob(jobId) {
+  try {
+    const students = await loadCollection("students", true);
+    const jobs = await loadCollection("jobs", true);
+    const job = jobs.find((j) => j._id === jobId);
+    const sNum = state.user?.studentNumber || 1;
+    let student = students[sNum - 1] || students[0];
+    if (!student) {
+      student = await api("/students", {
+        method: "POST",
+        body: JSON.stringify({
+          name: state.user?.name || `Student ${sNum}`,
+          regNo: `24BCS${String(100 + sNum).padStart(4, "0")}`,
+          email: `${state.user?.username || "student1"}@campus.edu`,
+          department: "Computer Science",
+          graduationYear: 2027,
+          cgpa: 8.5,
+          skills: ["JavaScript", "Python", "SQL"]
+        })
+      });
+    }
+    await api("/applications", {
+      method: "POST",
+      body: JSON.stringify({
+        student: student._id,
+        job: jobId,
+        status: "Applied",
+        notes: `Submitted by ${state.user?.username || student.name} via Student Portal.`
+      })
+    });
+    state.records.applications = null;
+    toast(`Applied to "${job?.title || "Job"}" as ${student.name}!`);
+    await navigate("applications");
+  } catch (e) {
     toast(e.message, "error");
   }
 }
@@ -1290,29 +1369,86 @@ function exportCSV() {
   URL.revokeObjectURL(url);
 }
 
-/* ==================== DEMO AUTHENTICATION & USER PROFILE ==================== */
-function getSavedUser() {
-  try {
-    const raw = localStorage.getItem(USER_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch (e) {}
-  return { name: "Placement Admin", email: "admin@jobfairnexus.edu", role: "Administrator" };
+/* ==================== COMPULSORY LOGIN PAGE FLOW ==================== */
+function applyUserUI() {
+  const u = state.user;
+  if (!u) return;
+  const initials = u.isAdmin ? "AD" : `S${u.studentNumber || 1}`;
+  $("#sidebarUserName").text(u.username);
+  $("#sidebarUserRole").text(u.role);
+  $("#sidebarAvatar, #topAvatar").text(initials);
 }
 
-function applyUserUI() {
-  const u = getSavedUser();
-  const initials = u.name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((x) => x[0] || "")
-    .join("")
-    .toUpperCase();
-  $("#sidebarUserName").text(u.name);
-  $("#sidebarUserRole").text(u.role);
-  $("#sidebarAvatar, #topAvatar").text(initials || "PA");
+async function enterPortal(userSession) {
+  state.user = userSession;
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify(userSession));
+  applyUserUI();
+  $("#loginScreen").addClass("d-none");
+  $("#appShell").removeClass("d-none");
+  state.modal = bootstrap.Modal.getOrCreateInstance(document.getElementById("recordModal"));
+  await checkHealth();
+  await Promise.all([loadCollection("companies"), loadCollection("jobs"), loadCollection("students")]);
+  await navigate("dashboard");
+  toast(`Welcome ${userSession.username}! Signed in as ${userSession.role}.`);
+}
+
+function logoutPortal() {
+  state.user = null;
+  sessionStorage.removeItem(SESSION_KEY);
+  $("#appShell").addClass("d-none");
+  $("#loginScreen").removeClass("d-none");
+  $("#loginPassword").val("");
+  $("#loginError").addClass("d-none");
+  toast("Signed out successfully.", "info");
 }
 
 /* ==================== EVENT LISTENERS ==================== */
+$(document).on("click", "[data-role-tab]", function () {
+  const role = $(this).data("role-tab");
+  $("[data-role-tab]").removeClass("active");
+  $(this).addClass("active");
+  $("#loginError").addClass("d-none");
+  if (role === "admin") {
+    $("#loginUsername").attr("placeholder", "e.g. Admin1");
+  } else {
+    $("#loginUsername").attr("placeholder", "e.g. student1, student2, …");
+  }
+});
+
+$(document).on("click", "[data-fill-user]", function () {
+  const u = $(this).data("fill-user");
+  const p = $(this).data("fill-pass");
+  const r = $(this).data("fill-role");
+  $("[data-role-tab]").removeClass("active");
+  $(`[data-role-tab="${r}"]`).addClass("active");
+  $("#loginUsername").val(u);
+  $("#loginPassword").val(p);
+  $("#loginError").addClass("d-none");
+});
+
+$("#togglePwdBtn").on("click", function () {
+  const input = $("#loginPassword");
+  const isPwd = input.attr("type") === "password";
+  input.attr("type", isPwd ? "text" : "password");
+  $(this).find("i").attr("class", isPwd ? "bi bi-eye-slash" : "bi bi-eye");
+});
+
+$("#loginPageForm").on("submit", async function (e) {
+  e.preventDefault();
+  const username = $("#loginUsername").val();
+  const password = $("#loginPassword").val();
+  const validated = validateCredentials(username, password);
+  if (!validated) {
+    $("#loginErrorText").text("Invalid credentials! Use Admin1 / Admin@1234 or student1 / Student@1, student2 / Student@2, …");
+    $("#loginError").removeClass("d-none");
+    return;
+  }
+  $("#loginError").addClass("d-none");
+  await enterPortal(validated);
+});
+
+$("#logoutSidebarBtn, #logoutTopBtn").on("click", logoutPortal);
+
 $(document).on("click", "[data-page]", function (e) {
   e.preventDefault();
   navigate($(this).data("page"));
@@ -1322,6 +1458,7 @@ $(document).on("click", "[data-action]", async function () {
   const action = $(this).data("action");
   if (action === "addRecord") return openRecordModal(state.page);
   if (action === "quickAddJob") return openRecordModal("jobs");
+  if (action === "quickApplyJob") return quickApplyJob($(this).data("id"));
   if (action === "edit") return openRecordModal(config[state.page] ? state.page : "applications", $(this).data("id"));
   if (action === "delete") return deleteRecord(config[state.page] ? state.page : "applications", $(this).data("id"));
   if (action === "importLiveJob") return importLiveJobByIndex(Number($(this).data("idx")));
@@ -1370,29 +1507,6 @@ $("#notifBtn").on("click", () => {
   toast(`Live Status: ${jobsCount} active job openings and ${appsCount} candidate applications synced.`, "info");
 });
 
-$("#userMenuBtn, #topAvatar").on("click", () => {
-  const u = getSavedUser();
-  $("#authName").val(u.name);
-  $("#authEmail").val(u.email);
-  $("#authRole").val(u.role);
-  state.authModal = bootstrap.Modal.getOrCreateInstance(document.getElementById("authModal"));
-  state.authModal.show();
-});
-
-$("#authForm").on("submit", function (e) {
-  e.preventDefault();
-  const user = {
-    name: $("#authName").val().trim() || "Placement Admin",
-    email: $("#authEmail").val().trim() || "admin@jobfairnexus.edu",
-    role: $("#authRole").val() || "Administrator"
-  };
-  localStorage.setItem(USER_KEY, JSON.stringify(user));
-  applyUserUI();
-  state.authModal.hide();
-  toast(`Signed in as ${user.name} (${user.role})`);
-  if (state.page === "dashboard") loadDashboard();
-});
-
 $("#mobileMenu").on("click", () => $("#sidebar").toggleClass("open"));
 
 $(document).on("input", "#tableSearch", function () {
@@ -1438,10 +1552,8 @@ $(document).on("click", "#exportReportBtn", async () => {
   URL.revokeObjectURL(url);
 });
 
-$(async function () {
-  applyUserUI();
-  state.modal = bootstrap.Modal.getOrCreateInstance(document.getElementById("recordModal"));
-  await checkHealth();
-  await Promise.all([loadCollection("companies"), loadCollection("jobs"), loadCollection("students")]);
-  await navigate("dashboard");
+$(function () {
+  // Always start on the compulsory Login Screen unless already authenticated in this tab session
+  $("#appShell").addClass("d-none");
+  $("#loginScreen").removeClass("d-none");
 });

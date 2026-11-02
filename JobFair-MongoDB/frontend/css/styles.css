@@ -10,3 +10,41 @@
 .entity-avatar{width:34px;height:34px;border-radius:10px;object-fit:cover;border:1px solid #e5eaf3;flex-shrink:0}
 .skill-pill{display:inline-block;background:#f1f4fb;color:#4b5b76;border-radius:5px;padding:2px 7px;font-size:9.5px;font-weight:650;margin:1px 3px 1px 0}
 .sidebar-user:hover{background:#ffffff0d;border-radius:10px}
+
+/* Compulsory Starting Login Page */
+.login-screen{min-height:100vh;width:100%;background:radial-gradient(circle at 15% 20%,#243b67 0%,#121f36 55%,#0c1526 100%);display:flex;align-items:center;justify-content:center;padding:28px 18px}
+.login-wrapper{max-width:1040px;width:100%;display:grid;grid-template-columns:1.08fr 1fr;background:#ffffff08;border:1px solid #ffffff1a;border-radius:22px;overflow:hidden;box-shadow:0 28px 80px rgba(5,12,28,.55);backdrop-filter:blur(12px)}
+.login-showcase{padding:44px 40px;color:#fff;background:linear-gradient(155deg,#1b2f52 0%,#13223b 100%);display:flex;flex-direction:column;justify-content:center}
+.login-brand{display:flex;align-items:center;gap:13px;font-size:22px;font-weight:800;letter-spacing:-.6px;margin-bottom:26px}
+.login-brand small{display:block;font-size:9px;letter-spacing:1.8px;color:#93a8cc;font-weight:700;margin-top:3px}
+.login-hero-title{font-size:28px;font-weight:800;line-height:1.25;letter-spacing:-.8px;margin-bottom:14px;color:#fff}
+.login-hero-sub{font-size:13px;color:#b0c0dc;line-height:1.65;margin-bottom:28px}
+.login-features{display:grid;gap:16px}
+.login-feature-item{display:flex;align-items:flex-start;gap:13px;background:#ffffff0a;border:1px solid #ffffff14;padding:13px 15px;border-radius:12px}
+.login-feature-item i{font-size:18px;color:#7d97ff;margin-top:2px}
+.login-feature-item strong{display:block;font-size:12.5px;color:#fff;margin-bottom:2px}
+.login-feature-item span{font-size:11.5px;color:#9cb0d1}
+.login-card{background:#fff;padding:40px 38px;display:flex;flex-direction:column;justify-content:center}
+.login-card-head h2{font-size:23px;font-weight:800;letter-spacing:-.6px;color:#18263c;margin:4px 0 6px}
+.login-card-head p{font-size:12.5px;color:#7c8ba1;margin-bottom:20px}
+.role-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;background:#f3f6fb;padding:5px;border-radius:11px;margin-bottom:18px}
+.role-tab{border:0;background:transparent;padding:9px 12px;border-radius:8px;font-size:12px;font-weight:700;color:#64748b;transition:.18s}
+.role-tab.active{background:#fff;color:#3556e0;box-shadow:0 3px 10px rgba(25,42,75,.08)}
+.input-icon-group{position:relative;display:flex;align-items:center}
+.input-icon-group>i{position:absolute;left:13px;color:#8896ab;font-size:15px;pointer-events:none}
+.input-icon-group .form-control{padding-left:38px;padding-right:38px;height:42px;font-size:13px}
+.pwd-toggle{position:absolute;right:8px;border:0;background:transparent;color:#8896ab;width:30px;height:30px;border-radius:6px;display:grid;place-items:center}
+.pwd-toggle:hover{color:#334155;background:#f1f5f9}
+.login-submit-btn{font-size:13.5px;font-weight:700;height:44px;border-radius:10px}
+.login-error{background:#fff1f2;border:1px solid #fecdd3;color:#be123c;border-radius:10px;padding:10px 13px;font-size:12px;font-weight:600;margin-bottom:15px;display:flex;align-items:center}
+.credentials-box{margin-top:22px;background:#f8fafd;border:1px solid #e5ebf5;border-radius:12px;padding:13px 14px}
+.credentials-title{font-size:11px;font-weight:800;color:#475569;margin-bottom:9px;text-transform:uppercase;letter-spacing:.5px}
+.cred-list{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.cred-item{border:1px solid #e2e8f0;background:#fff;border-radius:8px;padding:7px 9px;text-align:left;font-size:11px;display:flex;flex-direction:column;gap:3px;transition:.15s;cursor:pointer}
+.cred-item:hover{border-color:#4468ee;background:#f4f7ff}
+.cred-item code{color:#1e293b;font-weight:700;font-size:10.5px}
+.cred-badge{display:inline-block;font-size:9px;font-weight:800;padding:1px 6px;border-radius:4px;width:fit-content}
+.cred-badge.admin{background:#e0e7ff;color:#3730a3}
+.cred-badge.student{background:#dcfce7;color:#166534}
+.cred-hint{font-size:10.5px;color:#64748b;margin-top:8px}
+@media(max-width:860px){.login-wrapper{grid-template-columns:1fr}.login-showcase{padding:28px 24px}.login-card{padding:28px 24px}.cred-list{grid-template-columns:1fr}}
